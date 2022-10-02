@@ -31,3 +31,9 @@ class Event(models.Model):
     pending_users = models.JSONField()
     start_date = models.DateField()
     price = models.IntegerField()
+
+
+class Review(models.Model):
+    route_id = models.IntegerField()
+    review_text = models.TextField()
+    review_rate = models.IntegerField()
