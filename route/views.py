@@ -1,4 +1,6 @@
-from django.shortcuts import render
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from route import models
 
@@ -36,45 +38,90 @@ def route_review(request, route_id):
 
 
 def route_add(request):
-    if request.method == 'GET':
-        return render(request, 'add_route.html')
-    if request.method == 'POST':
-        starting_point = request.POST.get('starting_point')
-        destination = request.POST.get('destination')
-        country = request.POST.get('country')
-        location = request.POST.get('location')
-        description = request.POST.get('description')
-        route_type = request.POST.get('route_type')
-        duration = request.POST.get('duration')
+    if request.user.has_perm('route.add_route'):
+        if request.method == 'GET':
+            return render(request, 'add_route.html')
+        if request.method == 'POST':
+            starting_point = request.POST.get('starting_point')
+            destination = request.POST.get('destination')
+            country = request.POST.get('country')
+            location = request.POST.get('location')
+            description = request.POST.get('description')
+            route_type = request.POST.get('route_type')
+            duration = request.POST.get('duration')
 
-        start_obj = models.Places.objects.get(name=starting_point)
-        destination_obj = models.Places.objects.get(name=destination)
+            start_obj = models.Places.objects.get(name=starting_point)
+            destination_obj = models.Places.objects.get(name=destination)
 
-        new_route = models.Route(starting_point=start_obj.id, destination=destination_obj.id, country=country,
-                                 location=location, description=description, route_type=route_type, duration=duration,
-                                 stopping_point={})
+            new_route = models.Route(starting_point=start_obj.id, destination=destination_obj.id, country=country,
+                                     location=location, description=description, route_type=route_type, duration=duration,
+                                     stopping_point={})
 
-        new_route.save()
+            new_route.save()
 
-    return HttpResponse('Created new route!')
+            return HttpResponse('Created new route!')
+
+    else:
+        return HttpResponse('Not allowed to add route')
 
 
 def route_add_event(request, route_id):
-    if request.method == 'GET':
-        return render(request, 'add_event.html')
-    if request.method == 'POST':
-        start_date = request.POST.get('start_date')
-        price = request.POST.get('price')
+    if request.user.has_perm('route.add_event'):
+        if request.method == 'GET':
+            return render(request, 'add_event.html')
+        if request.method == 'POST':
+            start_date = request.POST.get('start_date')
+            price = request.POST.get('price')
 
-        new_event = models.Event(id_route=route_id, start_date=start_date, price=price, event_admin=1, approve_user=[],
-                                 pending_users=[])
-        new_event.save()
+            new_event = models.Event(id_route=route_id, start_date=start_date, price=price, event_admin=1, approve_user=[],
+                                     pending_users=[])
+            new_event.save()
 
-    return HttpResponse('Created new event')
+            return HttpResponse('Created new event')
 
+    else:
+        return HttpResponse('Not allowed to add event')
 
 def event_handler(request, event_id):
     event_info = models.Event.objects.all().filter(id=event_id)
     return HttpResponse([{'id': itm.id, 'id_route': itm.id_route, 'event_admin': itm.event_admin,
                           'approve_user': itm.approve_user, 'pending_users': itm.pending_users,
                           'start_date': itm.start_date, 'price': itm.price} for itm in event_info])
+
+
+def user_login(request):
+    if not request.user.is_authenticated:
+        if request.method == 'GET':
+            return render(request, 'login.html')
+        if request.method == 'POST':
+            username = request.POST['username']
+            password = request.POST['password']
+            user = authenticate(username=username, password=password)
+
+            if user is not None:
+                login(request, user)
+                return HttpResponse('User is login')
+            else:
+                return HttpResponse('No user')
+    else:
+        return HttpResponse('<a href="logout" > logout</a>')
+
+def user_registration(request):
+    if not request.user.is_authenticated:
+        if request.method == 'GET':
+            return render(request, 'registration.html')
+        if request.method == 'POST':
+            user = User.objects.create_user(username=request.POST.get('username'),
+                                            password=request.POST.get('password'),
+                                            email=request.POST.get('email'),
+                                            first_name=request.POST.get('first_name'),
+                                            last_name=request.POST.get('last_name'))
+            user.save()
+            return HttpResponse('Created user')
+    else:
+        return HttpResponse('<a href="logout" > logout</a>')
+
+
+def logout_user(request):
+    logout(request)
+    return redirect('/login')
