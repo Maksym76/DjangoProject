@@ -32,7 +32,7 @@ def route_filter(request, route_type=None, country=None, location=None):
         ON start_point.id = route_route.starting_point
 
     JOIN route_places as end_point
-        ON end_point.id = route_route.destination
+        ON end_point.id = route_route.starting
     WHERE """ + filter_string
 
     cursor.execute(joining)
@@ -45,11 +45,36 @@ def route_filter(request, route_type=None, country=None, location=None):
 
 
 def route_datail(request, route_id):
-    result = models.Route.objects.all().filter(id=route_id)
-    return HttpResponse([{'starting_point': itm.starting_point, 'stopping_point': itm.stopping_point,
-                          'destination': itm.destination, 'country': itm.country, 'location': itm.location,
-                          'description': itm.description, 'route_type': itm.route_type, 'duration': itm.duration}
-                         for itm in result])
+    cursor = connection.cursor()
+
+    sql_query = f"""SElECT route_route.id,
+    start.name as starting_point,
+    route_route.stopping_point,
+    route_route.destination,
+    route_route.country,
+    route_route.location,
+    route_route.description,
+    route_route.route_type,
+    route_route.duration
+    FROM route_route
+    JOIN route_places as start
+    ON start.id = route_route.starting_point
+    WHERE route_route.id = {route_id}"""
+
+    cursor.execute(sql_query)
+    result = cursor.fetchall()
+
+    new_result = [{'route_id': itm[0], 'starting_point': itm[1], 'stopping_point': itm[2], "destination": itm[3],
+                   'country': itm[4], 'location': itm[5], 'description': itm[6], 'route_type': itm[7],
+                   'duration': itm[8]} for itm in result]
+
+    return HttpResponse(new_result)
+
+    # result = models.Route.objects.all().filter(id=route_id)
+    # return HttpResponse([{'starting_point': itm.starting_point, 'stopping_point': itm.stopping_point,
+    #                       'destination': itm.destination, 'country': itm.country, 'location': itm.location,
+    #                       'description': itm.description, 'route_type': itm.route_type, 'duration': itm.duration}
+    #                      for itm in result])
 
 
 def route_review(request, route_id):
@@ -107,10 +132,32 @@ def route_add_event(request, route_id):
 
 
 def event_handler(request, event_id):
-    event_info = models.Event.objects.all().filter(id=event_id)
-    return HttpResponse([{'id': itm.id, 'id_route': itm.id_route, 'event_admin': itm.event_admin,
-                          'approve_user': itm.approve_user, 'pending_users': itm.pending_users,
-                          'start_date': itm.start_date, 'price': itm.price} for itm in event_info])
+    cursor = connection.cursor()
+
+    sql_query = f"""SELECT route_event.id,
+    route_event.id_route,
+    route_event.start_date,
+    route_event.price,
+    start.name as starting_point,
+    route_route.stopping_point as stopping_point
+    FROM route_event, route_route
+    JOIN route_places as start
+    ON start.id = route_route.starting_point
+    WHERE route_event.id = {event_id}
+    LIMIT 1"""
+
+    cursor.execute(sql_query)
+    result = cursor.fetchall()
+
+    new_result = [{'event_id': itm[0], 'id_route': itm[1], 'start_date': itm[2], "price": itm[3],
+                   'starting_point': itm[4], 'stopping_point': itm[5]} for itm in result]
+
+    return HttpResponse(new_result)
+
+    # event_info = models.Event.objects.all().filter(id=event_id)
+    # return HttpResponse([{'id': itm.id, 'id_route': itm.id_route, 'event_admin': itm.event_admin,
+    #                       'approve_user': itm.approve_user, 'pending_users': itm.pending_users,
+    #                       'start_date': itm.start_date, 'price': itm.price} for itm in event_info])
 
 
 def user_login(request):
