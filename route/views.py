@@ -1,26 +1,47 @@
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
+from django.contrib.auth.models import User
 from django.http import HttpResponse
+from django.db import connection
 from route import models
 
 
 # Create your views here.
 def route_filter(request, route_type=None, country=None, location=None):
-    query_filter = {}
+    cursor = connection.cursor()
+    query_filter = []
 
     if route_type is not None:
-        query_filter['route_type'] = route_type
+        query_filter.append(f"route_type='{route_type}'")
     if country is not None:
-        query_filter['country'] = country
+        query_filter.append(f"country='{country}'")
     if location is not None:
-        query_filter['location'] = location
+        query_filter.append(f"location='{location}'")
 
-    result = models.Route.objects.all().filter(**query_filter)
-    return HttpResponse([{'starting_point': itm.starting_point, 'stopping_point': itm.stopping_point,
-                          'destination': itm.destination, 'country': itm.country, 'location': itm.location,
-                          'description': itm.description, 'route_type': itm.route_type, 'duration': itm.duration}
-                         for itm in result])
+    filter_string = ' and '.join(query_filter)
+
+    joining = """SELECT route_route.country,
+       route_route.destination,
+       route_route.duration,
+       route_route.stopping_point,
+       route_route.route_type,
+       start_point.name,
+       end_point.name
+    FROM route_route
+    JOIN route_places as start_point
+        ON start_point.id = route_route.starting_point
+
+    JOIN route_places as end_point
+        ON end_point.id = route_route.destination
+    WHERE """ + filter_string
+
+    cursor.execute(joining)
+    result = cursor.fetchall()
+
+    new_result = [{'country': itm[0], 'description': itm[1], 'duration': itm[2], "stopping": itm[3],
+                   'type': itm[4], 'start': itm[5], 'end': itm[6]} for itm in result]
+
+    return HttpResponse(new_result)
 
 
 def route_datail(request, route_id):
@@ -54,7 +75,8 @@ def route_add(request):
             destination_obj = models.Places.objects.get(name=destination)
 
             new_route = models.Route(starting_point=start_obj.id, destination=destination_obj.id, country=country,
-                                     location=location, description=description, route_type=route_type, duration=duration,
+                                     location=location, description=description, route_type=route_type,
+                                     duration=duration,
                                      stopping_point={})
 
             new_route.save()
@@ -73,7 +95,8 @@ def route_add_event(request, route_id):
             start_date = request.POST.get('start_date')
             price = request.POST.get('price')
 
-            new_event = models.Event(id_route=route_id, start_date=start_date, price=price, event_admin=1, approve_user=[],
+            new_event = models.Event(id_route=route_id, start_date=start_date, price=price, event_admin=1,
+                                     approve_user=[],
                                      pending_users=[])
             new_event.save()
 
@@ -81,6 +104,7 @@ def route_add_event(request, route_id):
 
     else:
         return HttpResponse('Not allowed to add event')
+
 
 def event_handler(request, event_id):
     event_info = models.Event.objects.all().filter(id=event_id)
@@ -105,6 +129,7 @@ def user_login(request):
                 return HttpResponse('No user')
     else:
         return HttpResponse('<a href="logout" > logout</a>')
+
 
 def user_registration(request):
     if not request.user.is_authenticated:
