@@ -1,8 +1,10 @@
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
+from mongo_utils import MongoDBConnection
 from django.http import HttpResponse
 from django.db import connection
+from bson import ObjectId
 from route import models
 
 
@@ -58,7 +60,7 @@ def route_datail(request, route_id):
     route_route.duration
     FROM route_route
     JOIN route_places as start
-    ON start.id = route_route.starting_point
+        ON start.id = route_route.starting_point
     WHERE route_route.id = {route_id}"""
 
     cursor.execute(sql_query)
@@ -68,7 +70,11 @@ def route_datail(request, route_id):
                    'country': itm[4], 'location': itm[5], 'description': itm[6], 'route_type': itm[7],
                    'duration': itm[8]} for itm in result]
 
-    return HttpResponse(new_result)
+    with MongoDBConnection('admin', 'admin', '127.0.0.1') as db:
+        collect = db['stop_points']
+        stop_point = collect.find_one({'_id': ObjectId(new_result[0]['stopping_point'])})
+
+    return HttpResponse([new_result, stop_point])
 
     # result = models.Route.objects.all().filter(id=route_id)
     # return HttpResponse([{'starting_point': itm.starting_point, 'stopping_point': itm.stopping_point,
@@ -142,7 +148,7 @@ def event_handler(request, event_id):
     route_route.stopping_point as stopping_point
     FROM route_event, route_route
     JOIN route_places as start
-    ON start.id = route_route.starting_point
+        ON start.id = route_route.starting_point
     WHERE route_event.id = {event_id}
     LIMIT 1"""
 
