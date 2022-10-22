@@ -25,8 +25,11 @@ class MongoDBConnection():
 
 if __name__ == '__main__':
     with MongoDBConnection('admin', 'admin', '127.0.0.1') as db:
-        collection = db['stop_points']
-        collection.insert_one({'points': [
-            {'name': f'point_{uuid.uuid4()}', 'lat': random.random(), 'lon': random.random()},
-            {'name': f'point_{uuid.uuid4()}', 'lat': random.random(), 'lon': random.random()}
-        ]})
+        # collection_stop_points = db['stop_points']
+        # collection_stop_points.insert_one({'points': [
+        #     {'name': f'point_{uuid.uuid4()}', 'lat': random.random(), 'lon': random.random()},
+        #     {'name': f'point_{uuid.uuid4()}', 'lat': random.random(), 'lon': random.random()}
+        # ]})
+
+        collection_event_user = db['event_user']
+        collection_event_user.insert_one({'approved': [1, 2, 3], 'pending': [5, 6]})

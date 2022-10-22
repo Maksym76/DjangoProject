@@ -6,6 +6,7 @@ from django.http import HttpResponse
 from django.db import connection
 from bson import ObjectId
 from route import models
+import json
 
 
 # Create your views here.
@@ -34,7 +35,7 @@ def route_filter(request, route_type=None, country=None, location=None):
         ON start_point.id = route_route.starting_point
 
     JOIN route_places as end_point
-        ON end_point.id = route_route.starting
+        ON end_point.id = route_route.starting_point
     WHERE """ + filter_string
 
     cursor.execute(joining)
@@ -95,6 +96,7 @@ def route_add(request):
             return render(request, 'add_route.html')
         if request.method == 'POST':
             starting_point = request.POST.get('starting_point')
+            stopping_point = request.POST.get('stopping_point')
             destination = request.POST.get('destination')
             country = request.POST.get('country')
             location = request.POST.get('location')
@@ -102,13 +104,19 @@ def route_add(request):
             route_type = request.POST.get('route_type')
             duration = request.POST.get('duration')
 
+            stop_list = json.loads(stopping_point)
+
+            with MongoDBConnection('admin', 'admin', '127.0.0.1') as db:
+                collect = db['stop_points']
+                id_stop_point = collect.insert_one({'points': stop_list}).inserted_id
+
             start_obj = models.Places.objects.get(name=starting_point)
             destination_obj = models.Places.objects.get(name=destination)
 
             new_route = models.Route(starting_point=start_obj.id, destination=destination_obj.id, country=country,
                                      location=location, description=description, route_type=route_type,
                                      duration=duration,
-                                     stopping_point={})
+                                     stopping_point=id_stop_point)
 
             new_route.save()
 
@@ -144,6 +152,7 @@ def event_handler(request, event_id):
     route_event.id_route,
     route_event.start_date,
     route_event.price,
+    route_event.event_user,
     start.name as starting_point,
     route_route.stopping_point as stopping_point
     FROM route_event, route_route
@@ -156,7 +165,20 @@ def event_handler(request, event_id):
     result = cursor.fetchall()
 
     new_result = [{'event_id': itm[0], 'id_route': itm[1], 'start_date': itm[2], "price": itm[3],
-                   'starting_point': itm[4], 'stopping_point': itm[5]} for itm in result]
+                   'id_event_user': itm[4], 'starting_point': itm[5], 'stopping_point': itm[6]} for itm in result]
+
+    with MongoDBConnection('admin', 'admin', '127.0.0.1') as db:
+        collect = db['event_user']
+        event_user = collect.find_one({'_id': ObjectId(new_result[0]['id_event_user'])})
+
+    users_pending = User.objects.filter(pk__in=event_user['pending'])
+    users_approved = User.objects.filter(pk__in=event_user['approved'])
+
+    list_users_pending = [{itm.id: itm.username} for itm in users_pending]
+    list_users_approved = [{itm.id: itm.username} for itm in users_approved]
+
+    new_result[0]['users_pending'] = list_users_pending
+    new_result[0]['users_approved'] = list_users_approved
 
     return HttpResponse(new_result)
 
@@ -203,3 +225,25 @@ def user_registration(request):
 def logout_user(request):
     logout(request)
     return redirect('/login')
+
+
+def add_me_to_event(request, event_id):
+    user = request.user.id
+    event = models.Event.objects.filter(id=event_id).first()
+
+    with MongoDBConnection('admin', 'admin', '127.0.0.1') as db:
+        event_users = db["event_user"]
+        all_event_users = event_users.find_one({'_id': ObjectId(event.event_user)})
+
+        if user in all_event_users['pending'] or user in all_event_users['approved']:
+            return HttpResponse('You are in pending users')
+
+        else:
+            all_event_users['pending'].append(user)
+            event_users.update_one({'_id': ObjectId(event.event_user)}, {"$set": all_event_users}, upsert=False)
+
+    return redirect("route:event_info", *event_id)
+
+
+def event_approved_user(request, event_id):
+    ...
