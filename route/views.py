@@ -268,9 +268,14 @@ def event_approved_user(request, event_id):
             event_users = db['event_user']
             all_event_users = event_users.find_one({'_id': ObjectId(event.event_user)})
 
-            all_event_users["pending"].remove(approved_user)
-            all_event_users["approved"].append(approved_user)
+            if approved_user in all_event_users["pending"]:
+                all_event_users["pending"].remove(approved_user)
+                all_event_users["approved"].append(approved_user)
+                event_users.update_one({'_id': ObjectId(event.event_user)}, {"$set": all_event_users}, upsert=False)
 
-            event_users.update_one({'_id': ObjectId(event.event_user)}, {"$set": all_event_users}, upsert=False)
+            else:
+                return HttpResponse("""User with this id is not in the pending list <br>
+                <a href="approved_user" >approved user</a>""")
 
-        return HttpResponse('User is approved')
+        return HttpResponse("""User is accepted <br>
+        <a href="approved_user" >approved user</a>""")
