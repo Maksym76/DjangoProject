@@ -261,6 +261,10 @@ def event_approved_user(request, event_id):
             return HttpResponse("You don't have access")
 
     if request.method == "POST":
+
+        if request.POST.get("user id") is None:
+            return HttpResponse("You didn't choose user id")
+
         event = models.Event.objects.filter(id=event_id).first()
         approved_user = int(request.POST.get("user id"))
 
@@ -268,14 +272,10 @@ def event_approved_user(request, event_id):
             event_users = db['event_user']
             all_event_users = event_users.find_one({'_id': ObjectId(event.event_user)})
 
-            if approved_user in all_event_users["pending"]:
-                all_event_users["pending"].remove(approved_user)
-                all_event_users["approved"].append(approved_user)
-                event_users.update_one({'_id': ObjectId(event.event_user)}, {"$set": all_event_users}, upsert=False)
+            all_event_users["pending"].remove(approved_user)
+            all_event_users["approved"].append(approved_user)
 
-            else:
-                return HttpResponse("""User with this id is not in the pending list <br>
-                <a href="approved_user" >approved user</a>""")
+            event_users.update_one({'_id': ObjectId(event.event_user)}, {"$set": all_event_users}, upsert=False)
 
         return HttpResponse("""User is accepted <br>
         <a href="approved_user" >approved user</a>""")
