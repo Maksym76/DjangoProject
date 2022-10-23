@@ -264,12 +264,13 @@ def event_approved_user(request, event_id):
         event = models.Event.objects.filter(id=event_id).first()
         approved_user = int(request.POST.get("user id"))
 
-    with MongoDBConnection('admin', 'admin', '127.0.0.1') as db:
-        event_users = db['event_user']
-        all_event_users = event_users.find_one({'_id': ObjectId(event.event_user)})
+        with MongoDBConnection('admin', 'admin', '127.0.0.1') as db:
+            event_users = db['event_user']
+            all_event_users = event_users.find_one({'_id': ObjectId(event.event_user)})
 
-        all_event_users["pending"].remove(approved_user)
-        all_event_users["approved"].append(approved_user)
+            all_event_users["pending"].remove(approved_user)
+            all_event_users["approved"].append(approved_user)
 
-        event_users.update_one({'_id': ObjectId(event.event_user)}, {"$set": all_event_users}, upsert=False)
+            event_users.update_one({'_id': ObjectId(event.event_user)}, {"$set": all_event_users}, upsert=False)
 
+        return HttpResponse('User is approved')

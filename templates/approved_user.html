@@ -6,11 +6,13 @@
 </head>
 <body>
 
-<p>Choose a id users:</p>
+<p>Choose id users:</p>
 <form action="approved_user" method="post">
   {% csrf_token %}
-    <input list="users" name="user id">
-  <datalist id="users">
+    <label>
+        <input list="users" name="user id">
+    </label>
+    <datalist id="users">
     {% for user in pending_users %}
       <option value="{{user}}">
     {% endfor %}

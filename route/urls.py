@@ -10,7 +10,7 @@ urlpatterns = [
     path('add_route', views.route_add, name='add_route'),
     path("event/<event_id>", views.event_handler, name='event_info'),
     path("event/<event_id>/add_me", views.add_me_to_event, name='add_me'),
-    path("event/<event_id>/approved_user", views.event_approved_user),
+    path("event/<event_id>/approved_user", views.event_approved_user, name='approved_user'),
     path('<str:route_type>', views.route_filter, name='route_type'),
     path('<str:route_type>/<str:country>', views.route_filter, name='route_country'),
     path('<str:route_type>/<str:country>/<str:location>', views.route_filter, name='route_location'),
