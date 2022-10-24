@@ -1,6 +1,8 @@
 from django.contrib.auth import authenticate, login, logout
+from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
+from django.core.paginator import Paginator
 from mongo_utils import MongoDBConnection
 from django.http import HttpResponse
 from django.db import connection
@@ -44,7 +46,15 @@ def route_filter(request, route_type=None, country=None, location=None):
     new_result = [{'country': itm[0], 'description': itm[1], 'duration': itm[2], "stopping": itm[3],
                    'type': itm[4], 'start': itm[5], 'end': itm[6]} for itm in result]
 
-    return HttpResponse(new_result)
+    p = Paginator(new_result, 2)
+    num_page = int(request.GET.get('page', default=1))
+
+    if p.num_pages < num_page:
+        num_page = 1
+
+    select_page = p.get_page(num_page)
+
+    return HttpResponse(select_page.object_list)
 
 
 def route_datail(request, route_id):
@@ -94,6 +104,7 @@ def route_add(request):
     if request.user.has_perm('route.add_route'):
         if request.method == 'GET':
             return render(request, 'add_route.html')
+
         if request.method == 'POST':
             starting_point = request.POST.get('starting_point')
             stopping_point = request.POST.get('stopping_point')
@@ -104,6 +115,7 @@ def route_add(request):
             route_type = request.POST.get('route_type')
             duration = request.POST.get('duration')
 
+            models.validate_stopping_point(stopping_point)
             stop_list = json.loads(stopping_point)
 
             with MongoDBConnection('admin', 'admin', '127.0.0.1') as db:
@@ -118,6 +130,7 @@ def route_add(request):
                                      duration=duration,
                                      stopping_point=id_stop_point)
 
+            new_route.full_clean()
             new_route.save()
 
             return HttpResponse('Created new route!')
@@ -133,11 +146,16 @@ def route_add_event(request, route_id):
         if request.method == 'POST':
             start_date = request.POST.get('start_date')
             price = request.POST.get('price')
+            event_admin_id = request.user.id
 
-            new_event = models.Event(id_route=route_id, start_date=start_date, price=price, event_admin=1,
-                                     approve_user=[],
-                                     pending_users=[])
-            new_event.save()
+            new_event = models.Event(id_route=route_id, start_date=start_date, price=price, event_admin=event_admin_id)
+
+            try:
+                new_event.full_clean()
+                new_event.save()
+
+            except ValidationError:
+                return HttpResponse("Date error")
 
             return HttpResponse('Created new event')
 

@@ -7,17 +7,17 @@
 <body>
 <form action="add_event" method="POST">
     {% csrf_token %}
-  <div>
-    <label for="start_date">start_date</label>
-    <input type="date" id="start" name="trip-start" value="2022-07-22" min="2022-01-01" max="2022-12-31">
-  </div>
-  <div>
-    <label for="price">price</label>
-    <input name="price" id="price" value="..." />
-  </div>
-  <div>
-    <button>Send my greetings</button>
-  </div>
+    <div>
+        <label for="start_date">start_date</label>
+        <input type="date" id="start_date" name="start_date" value="2022-07-22" min="2022-01-01" max="2022-12-31">
+    </div>
+    <div>
+        <label for="price">price</label>
+        <input name="price" id="price" value="..."/>
+    </div>
+    <div>
+        <button>Send my greetings</button>
+    </div>
 </form>
 </body>
 </html>
